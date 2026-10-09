@@ -87,6 +87,8 @@ export default defineConfig([
 	},
 	{
 		entry: ["src/pdf-worker.mjs"],
+		// This dedicated asset intentionally bundles PDF.js into the host worker.
+		inlineOnly: false,
 		format: ["esm"],
 		outExtensions: () => ({ js: ".mjs" }),
 		dts: false,
