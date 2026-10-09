@@ -22,7 +22,6 @@ function hasUnsafePdfText(value: string): boolean {
 			code === 0x7f ||
 			(code >= 0x202a && code <= 0x202e) ||
 			(code >= 0x2066 && code <= 0x2069) ||
-			character === "%" ||
 			character === "\\"
 		) {
 			return true;
@@ -57,12 +56,18 @@ function privateHeaders(response: Response): Response {
 
 function filename(value: string | undefined): string {
 	const safe = Array.from(value ?? "document.pdf", (character) =>
-		hasUnsafePdfText(character) || UNSAFE_FILENAME_CHARACTERS.has(character) ? "_" : character,
-	)
-		.join("")
-		.slice(0, 160);
+		hasUnsafePdfText(character) ||
+		UNSAFE_FILENAME_CHARACTERS.has(character) ||
+		(character.length === 1 &&
+			character.charCodeAt(0) >= 0xd800 &&
+			character.charCodeAt(0) <= 0xdfff)
+			? "_"
+			: character,
+	).join("");
 	const stem = safe.replace(PDF_SUFFIX, "") || "document";
-	return `${stem.slice(0, 156)}.pdf`;
+	// Count code points so truncation cannot split a surrogate pair.
+	// oxlint-disable-next-line e18e/prefer-spread-syntax
+	return `${Array.from(stem).slice(0, 156).join("")}.pdf`;
 }
 
 const handleRequest: APIRoute = async ({ params, request, locals }) => {

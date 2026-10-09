@@ -245,6 +245,32 @@ describe("trusted raw plugin route runtime", () => {
 		expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 	});
 
+	it.each([
+		["100%.pdf", "100%.pdf"],
+		[`${"a".repeat(155)}😀`, `${"a".repeat(155)}😀.pdf`],
+		["lone\ud800.pdf", "lone_.pdf"],
+	])("safely encodes filename %s", async (name, expectedName) => {
+		const route = definePluginRoute({
+			methods: ["GET"],
+			response: "raw",
+			handler: async () =>
+				pluginResponse({
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: new Uint8Array([37, 80, 68, 70, 45]) },
+				}),
+		});
+		const response = await invokePrivatePdf(
+			route,
+			{ route: "/test", object: { id: "one" }, intent: "download", filename: name },
+			{ role: 50 },
+		);
+		expect(response.status).toBe(200);
+		const disposition = response.headers.get("Content-Disposition")!;
+		const encoded = disposition.split("filename*=UTF-8''")[1]!;
+		const decoded = decodeURIComponent(encoded);
+		expect(decoded).toBe(expectedName);
+	});
+
 	it("denies public route declarations", async () => {
 		const response = await invokePrivatePdf(
 			definePluginRoute({

@@ -39,4 +39,13 @@ Asset: PNG, 45,673 bytes; SHA-256 `c7678701aa314b0b79834de523db5b7936cac77c8d745
 - Comprehensive exact-revision OpenClaw review, CI and native reviewer availability are recorded separately in PR closeout. Drafts are ineligible for the upstream native bot; absence of a native run is not a clean review.
 - No merge, deployment, provider call or public Registry publication is included.
 
-AI assistance: Codex GPT-6.1 Sol and Cursor ACP GPT-5.6 Luna. The parent corrected, inspected and independently tested the ACP output.
+## Review cycle 1 adjudication
+
+Comprehensive review epoch 1 covered base `58e5f648fed36606e26152edd576c93c5ef4f1e7` and head `c0551f40e94b0056e186fadba45175cdc436390d`, with native/applied maximum priority P3 and exact-tuple qualification. It returned two findings:
+
+- **P2, percent filenames — required fix accepted.** Block Kit accepted `%`, but the mediator rejected it. The mediator now accepts percent filenames and safely percent-encodes the response parameter. A `100%.pdf` regression checks a successful response and the decoded filename.
+- **P3, Unicode truncation — required fix accepted.** UTF-16 slicing could split an emoji and throw during header encoding. Host and browser download filenames now truncate by code point and normalize malformed Unicode. Regressions cover a boundary emoji and lone surrogate.
+
+GitHub CI additionally exposed missing intentional worker bundling and optimizer handling of the worker asset query. Those defects are corrected; demo Astro checks cover the distribution path. Epoch 1 is superseded for final-head qualification; the final PR description records the later review and CI outcome.
+
+AI assistance: Codex GPT-6.1 Sol, Cursor ACP GPT-5.6 Luna, and OpenClaw reviewer GPT-5.6 Terra. The parent corrected, inspected and independently tested the ACP output.

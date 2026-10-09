@@ -21,11 +21,14 @@ function downloadFilename(value: string | undefined): string {
 			code === 127 ||
 			(code >= 0x202a && code <= 0x202e) ||
 			(code >= 0x2066 && code <= 0x2069) ||
+			(code >= 0xd800 && code <= 0xdfff) ||
 			'"\\/:*?<>|'.includes(character)
 			? "_"
 			: character;
 	}).join("");
-	return `${name.replace(PDF_SUFFIX, "").slice(0, 156) || "document"}.pdf`;
+	// Count code points so truncation cannot split a surrogate pair.
+	// oxlint-disable-next-line e18e/prefer-spread-syntax
+	return `${Array.from(name.replace(PDF_SUFFIX, "")).slice(0, 156).join("") || "document"}.pdf`;
 }
 
 export function PrivatePdfHandoff({
