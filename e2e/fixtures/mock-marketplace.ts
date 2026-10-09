@@ -14,8 +14,11 @@
  * Runs on a configurable port and returns deterministic fixture data.
  */
 
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
+import { fileURLToPath } from "node:url";
 
+import { buildPlugin } from "@emdash-cms/plugin-cli";
 import type { PluginCapability, PluginManifest } from "@emdash-cms/plugin-types";
 
 import { createDelegatedReleaseConformanceFixture } from "../../packages/registry-verification/fixtures/conformance/delegated-release.js";
@@ -246,17 +249,21 @@ export interface RegistryFixtureDescriptor {
 let registryFixture: RegistryFixtureDescriptor | undefined;
 const registryArtifacts = new Map<string, Uint8Array>();
 
-function registryBackendCode(version: string): string {
-	return `
-export default {
-	routes: {
-		admin: {
-			permission: "plugins:manage",
-			handler: async () => ({ blocks: [{ type: "header", text: "Installed Gallery ${version}" }] }),
-		},
-		hello: { public: true, handler: async () => ({ version: "${version}" }) },
-	},
-};`;
+async function registryBackendCode(version: string): Promise<string> {
+	const source = fileURLToPath(new URL("./private-pdf-plugin/", import.meta.url));
+	const dir = fileURLToPath(
+		new URL(`../../.emdash/private-pdf-handoff-runs/registry-${version}/`, import.meta.url),
+	);
+	await mkdir(`${dir}/src`, { recursive: true });
+	const manifest = await readFile(`${source}/emdash-plugin.jsonc`, "utf8");
+	await writeFile(
+		`${dir}/emdash-plugin.jsonc`,
+		manifest.replace('"version": "1.2.3"', `"version": "${version}"`),
+	);
+	const code = await readFile(`${source}/src/plugin.ts`, "utf8");
+	await writeFile(`${dir}/src/plugin.ts`, code.replace("__FIXTURE_VERSION__", version));
+	const built = await buildPlugin({ dir });
+	return readFile(built.files.runtime, "utf8");
 }
 
 function registryManifest(
@@ -275,6 +282,13 @@ function registryManifest(
 		routes: [
 			{ name: "admin", permission: "plugins:manage" },
 			{ name: "hello", public: true },
+			{
+				name: "document",
+				permission: "plugins:manage",
+				methods: ["GET"],
+				request: { body: "none" },
+				response: "raw",
+			},
 		],
 		admin: { pages: [{ path: "/overview", label: "Overview", icon: "image" }] },
 	};
@@ -446,13 +460,13 @@ export async function startMockMarketplace(
 		version: "1.2.3",
 		declaredAccess: readAccess,
 		manifest: registryManifest("1.2.3", ["content:read"], readAccess),
-		backendCode: registryBackendCode("1.2.3"),
+		backendCode: await registryBackendCode("1.2.3"),
 	});
 	const update = await createDelegatedReleaseConformanceFixture({
 		version: "1.3.0",
 		declaredAccess: mediaAccess,
 		manifest: registryManifest("1.3.0", ["content:read", "media:read"], mediaAccess),
-		backendCode: registryBackendCode("1.3.0"),
+		backendCode: await registryBackendCode("1.3.0"),
 	});
 	registryArtifacts.set("1.2.3", generated.artifactBytes);
 	registryArtifacts.set("1.3.0", update.artifactBytes);

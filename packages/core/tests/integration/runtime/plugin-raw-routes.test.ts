@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { NodeSqliteCompatDatabase as Database } from "#node-sqlite";
 
+import { POST as privatePdfPOST } from "../../../src/astro/routes/api/plugin-assets/[pluginId]/pdf.js";
 import { EmDashRuntime } from "../../../src/emdash-runtime.js";
 import { pluginResponse } from "../../../src/plugin-types.js";
 import { definePlugin, definePluginRoute } from "../../../src/plugins/define-plugin.js";
@@ -34,6 +35,49 @@ async function invoke(route: PluginRoute, request: Request) {
 		path: "/test",
 		request,
 	});
+}
+
+async function invokePrivatePdf(
+	route: PluginRoute,
+	body: unknown,
+	user?: { role: number },
+	tokenScopes?: string[],
+) {
+	const runtime = await EmDashRuntime.create({
+		config: { database: { entrypoint: randomUUID(), config: {}, type: "sqlite" } },
+		plugins: [definePlugin({ id: "raw-demo", version: "1.0.0", routes: { test: route } })],
+		createDialect: () => new SqliteDialect({ database: new Database(":memory:") }),
+		createStorage: null,
+		sandboxEnabled: false,
+		sandboxedPluginEntries: [],
+		createSandboxRunner: null,
+	});
+	runtimes.push(runtime);
+	return privatePdfPOST({
+		params: { pluginId: "raw-demo" },
+		request: new Request("https://example.com/_emdash/api/plugin-assets/raw-demo/pdf", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-EmDash-Request": "1",
+				"Content-Length": String(JSON.stringify(body).length),
+			},
+			body: JSON.stringify(body),
+		}),
+		locals: {
+			emdash: runtime,
+			user: user
+				? {
+						id: "user-1",
+						email: "user@example.test",
+						name: null,
+						role: user.role,
+						createdAt: new Date(),
+					}
+				: null,
+			tokenScopes,
+		},
+	} as never);
 }
 
 describe("trusted raw plugin route runtime", () => {
@@ -118,5 +162,154 @@ describe("trusted raw plugin route runtime", () => {
 		);
 		expect(response.status).toBe(413);
 		expect(invoked).toBe(false);
+	});
+
+	it("reauthorizes the private PDF handoff and preserves exact PDF bytes", async () => {
+		const bytes = new Uint8Array([37, 80, 68, 70, 45, 1, 2, 3]);
+		const route = definePluginRoute({
+			methods: ["GET"],
+			response: "raw",
+			handler: async () =>
+				pluginResponse({
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: bytes },
+				}),
+		});
+		const denied = await invokePrivatePdf(route, {
+			route: "/test",
+			object: { documentId: "doc-1" },
+			intent: "view",
+		});
+		expect(denied.status).toBe(401);
+
+		const response = await invokePrivatePdf(
+			route,
+			{
+				route: "/test",
+				object: { documentId: "doc-1" },
+				intent: "download",
+				filename: "invoice.pdf",
+			},
+			{ role: 50 },
+		);
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe("application/pdf");
+		expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+		expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(response.headers.get("Content-Disposition")).toContain("attachment");
+		expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+	});
+
+	it("retains role and token scope authorization before invoking the PDF handler", async () => {
+		let calls = 0;
+		const route = definePluginRoute({
+			methods: ["GET"],
+			request: { body: "none" },
+			response: "raw",
+			handler: async () => {
+				calls++;
+				return pluginResponse({
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: new Uint8Array([37, 80, 68, 70, 45]) },
+				});
+			},
+		});
+		const body = { route: "/test", object: { id: "one" }, intent: "view" };
+		expect((await invokePrivatePdf(route, body, { role: 10 })).status).toBe(403);
+		expect((await invokePrivatePdf(route, body, { role: 50 }, ["content:read"])).status).toBe(403);
+		expect(calls).toBe(0);
+		expect((await invokePrivatePdf(route, body, { role: 50 }, ["admin"])).status).toBe(200);
+		expect(calls).toBe(1);
+	});
+
+	it.each([
+		["empty", new Uint8Array(), 502],
+		["invalid signature", new TextEncoder().encode("plain data"), 502],
+		["over dispatcher response limit", new Uint8Array(8 * 1024 * 1024 + 1), 502],
+	])("rejects %s PDF bytes", async (_label, bytes, status) => {
+		const route = definePluginRoute({
+			methods: ["GET"],
+			response: "raw",
+			handler: async () =>
+				pluginResponse({
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: bytes },
+				}),
+		});
+		const response = await invokePrivatePdf(
+			route,
+			{ route: "/test", object: { id: "one" }, intent: "download" },
+			{ role: 50 },
+		);
+		expect(response.status).toBe(status);
+		expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+	});
+
+	it("denies public route declarations", async () => {
+		const response = await invokePrivatePdf(
+			definePluginRoute({
+				methods: ["GET"],
+				public: true,
+				response: "raw",
+				handler: async () =>
+					pluginResponse({
+						headers: { "content-type": "application/pdf" },
+						body: { kind: "bytes", value: new Uint8Array([37, 80, 68, 70, 45]) },
+					}),
+			}),
+			{ route: "/test", object: { documentId: "doc-1" }, intent: "view" },
+			{ role: 50 },
+		);
+		expect(response.status).toBe(400);
+	});
+
+	it.each([
+		["non-GET", { methods: ["POST"] as const, response: "raw" as const }, 400],
+		["wrong MIME", { methods: ["GET"] as const, response: "raw" as const }, 502],
+	])("rejects %s route declarations or responses", async (_name, options, expectedStatus) => {
+		const response = await invokePrivatePdf(
+			definePluginRoute({
+				...options,
+				handler: async () =>
+					pluginResponse({
+						headers: { "content-type": "text/plain" },
+						body: { kind: "text", value: "not a PDF" },
+					}),
+			}),
+			{ route: "/test", object: { documentId: "doc-1" }, intent: "view" },
+			{ role: 50 },
+		);
+		expect(response.status).toBe(expectedStatus);
+		expect(response.headers.get("Cache-Control")).toContain("no-store");
+	});
+
+	it("rejects malformed target paths and reserved request fields", async () => {
+		const route = definePluginRoute({
+			methods: ["GET"],
+			response: "raw",
+			handler: async () =>
+				pluginResponse({
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: new Uint8Array([37, 80, 68, 70, 45]) },
+				}),
+		});
+		expect(
+			(
+				await invokePrivatePdf(
+					route,
+					{ route: "/test/../other", object: { id: "x" }, intent: "view" },
+					{ role: 50 },
+				)
+			).status,
+		).toBe(400);
+		expect(
+			(
+				await invokePrivatePdf(
+					route,
+					{ route: "/test", object: { "x/y": "x" }, intent: "view" },
+					{ role: 50 },
+				)
+			).status,
+		).toBe(400);
 	});
 });

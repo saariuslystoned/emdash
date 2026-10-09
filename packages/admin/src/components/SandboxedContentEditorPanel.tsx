@@ -17,6 +17,7 @@ import { resolvePluginLinkTarget } from "../lib/plugin-links.js";
 import { editorExtensionUrl } from "../lib/sandboxed-editor-extensions.js";
 import type { EditorDraftAccessDeclaration } from "../lib/sandboxed-editor-extensions.js";
 import { cn } from "../lib/utils.js";
+import { PrivatePdfHandoff } from "./PrivatePdfHandoff.js";
 
 export interface BrowserEditorDraftRequest {
 	collection: string;
@@ -278,6 +279,9 @@ export function SandboxedContentEditorPanel({
 							blocks={blocks}
 							onAction={handleAction}
 							resolveLinkTarget={(target) => resolvePluginLinkTarget(pluginId, target)}
+							renderPrivatePdf={(element) => (
+								<PrivatePdfHandoff pluginId={pluginId} element={element} />
+							)}
 						/>
 					) : null}
 				</div>

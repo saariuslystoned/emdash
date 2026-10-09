@@ -25,6 +25,8 @@ export type {
 	LinkElement,
 	LinkTarget,
 	LinkTargetResolver,
+	PrivatePdfElement,
+	PrivatePdfRenderer,
 	NavigationElement,
 	MenuElement,
 	ActionElement,

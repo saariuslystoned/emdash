@@ -884,6 +884,11 @@ export function injectCoreRoutes(
 		entrypoint: resolveRoute("api/plugins/[pluginId]/[...path].ts"),
 	});
 
+	injectRoute({
+		pattern: "/_emdash/api/plugin-assets/[pluginId]/pdf",
+		entrypoint: resolveRoute("api/plugin-assets/[pluginId]/pdf.ts"),
+	});
+
 	// Menu API routes
 	injectRoute({
 		pattern: "/_emdash/api/menus",

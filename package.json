@@ -45,6 +45,7 @@
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.2",
 		"@e18e/eslint-plugin": "^0.5.1",
+		"@emdash-cms/plugin-cli": "workspace:*",
 		"@lunariajs/core": "^0.2.0",
 		"@playwright/test": "^1.61.1",
 		"@types/node": "catalog:",

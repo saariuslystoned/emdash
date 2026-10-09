@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 // ── Composition Objects ──────────────────────────────────────────────────────
 
 export interface ConfirmDialog {
@@ -34,6 +36,15 @@ export interface LinkElement {
 }
 
 export type NavigationElement = LinkElement;
+
+export interface PrivatePdfElement {
+	type: "private_pdf";
+	label: string;
+	route: string;
+	object: Record<string, string>;
+	intent: "view" | "download";
+	filename?: string;
+}
 
 /** A button that opens a list of choices; picking one dispatches `action_id` with the item's value. */
 export interface MenuElement {
@@ -189,7 +200,7 @@ export type Element =
 	| RepeaterElement
 	| MediaPickerElement;
 
-export type ActionElement = Element | NavigationElement | MenuElement;
+export type ActionElement = Element | NavigationElement | MenuElement | PrivatePdfElement;
 
 // ── Form Fields (elements + optional condition) ──────────────────────────────
 
@@ -466,6 +477,7 @@ export type PluginUiContext = PluginUiContextBase &
 	);
 
 export type LinkTargetResolver = (target: LinkTarget) => string | null;
+export type PrivatePdfRenderer = (element: PrivatePdfElement) => ReactNode;
 
 export type BlockInteraction = BlockAction | FormSubmit | PageLoad;
 

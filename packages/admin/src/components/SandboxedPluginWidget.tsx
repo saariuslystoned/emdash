@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { apiFetch, API_BASE } from "../lib/api/client.js";
 import { resolvePluginLinkTarget } from "../lib/plugin-links.js";
+import { PrivatePdfHandoff } from "./PrivatePdfHandoff.js";
 
 interface SandboxedPluginWidgetProps {
 	pluginId: string;
@@ -112,6 +113,9 @@ export function SandboxedPluginWidget({ pluginId, widgetId }: SandboxedPluginWid
 					blocks={blocks}
 					onAction={handleAction}
 					resolveLinkTarget={(target) => resolvePluginLinkTarget(pluginId, target)}
+					renderPrivatePdf={(element) => (
+						<PrivatePdfHandoff pluginId={pluginId} element={element} />
+					)}
 				/>
 			</div>
 			{pending && (

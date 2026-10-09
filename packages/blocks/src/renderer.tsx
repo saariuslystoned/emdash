@@ -16,7 +16,8 @@ import { SectionBlockComponent } from "./blocks/section.js";
 import { StatsBlockComponent } from "./blocks/stats.js";
 import { TabBlockComponent } from "./blocks/tab.js";
 import { TableBlockComponent } from "./blocks/table.js";
-import type { Block, BlockInteraction, LinkTargetResolver } from "./types.js";
+import { PrivatePdfRendererContext } from "./render-element.js";
+import type { Block, BlockInteraction, LinkTargetResolver, PrivatePdfRenderer } from "./types.js";
 
 function renderBlock(
 	block: Block,
@@ -113,14 +114,22 @@ export interface BlockRendererProps {
 	blocks: Block[];
 	onAction: (interaction: BlockInteraction) => void;
 	resolveLinkTarget?: LinkTargetResolver;
+	renderPrivatePdf?: PrivatePdfRenderer;
 }
 
-export function BlockRenderer({ blocks, onAction, resolveLinkTarget }: BlockRendererProps) {
+export function BlockRenderer({
+	blocks,
+	onAction,
+	resolveLinkTarget,
+	renderPrivatePdf,
+}: BlockRendererProps) {
 	return (
-		<div className="flex flex-col gap-4">
-			{blocks.map((block, i) => (
-				<div key={block.block_id ?? i}>{renderBlock(block, onAction, resolveLinkTarget)}</div>
-			))}
-		</div>
+		<PrivatePdfRendererContext.Provider value={renderPrivatePdf}>
+			<div className="flex flex-col gap-4">
+				{blocks.map((block, i) => (
+					<div key={block.block_id ?? i}>{renderBlock(block, onAction, resolveLinkTarget)}</div>
+				))}
+			</div>
+		</PrivatePdfRendererContext.Provider>
 	);
 }

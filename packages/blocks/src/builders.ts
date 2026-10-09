@@ -26,6 +26,7 @@ import type {
 	ImageBlock,
 	LinkElement,
 	LinkTarget,
+	PrivatePdfElement,
 	MediaPickerElement,
 	MenuElement,
 	MeterBlock,
@@ -205,6 +206,23 @@ function link(
 		label,
 		target,
 		...(opts?.appearance !== undefined && { appearance: opts.appearance }),
+	};
+}
+
+function privatePdf(
+	label: string,
+	route: string,
+	object: Record<string, string>,
+	intent: PrivatePdfElement["intent"],
+	opts?: { filename?: string },
+): PrivatePdfElement {
+	return {
+		type: "private_pdf",
+		label,
+		route,
+		object,
+		intent,
+		...(opts?.filename !== undefined && { filename: opts.filename }),
 	};
 }
 
@@ -560,6 +578,7 @@ export const elements = {
 	toggle,
 	button,
 	link,
+	privatePdf,
 	menu,
 	secretInput,
 	checkbox,

@@ -67,6 +67,24 @@ describe("validateBlocks", () => {
 			expect(result).toEqual({ valid: true, errors: [] });
 		});
 
+		it("private PDF handoff", () => {
+			const result = validateBlocks([
+				{
+					type: "actions",
+					elements: [
+						{
+							type: "private_pdf",
+							label: "View",
+							route: "/documents/pdf",
+							object: { documentId: "doc-1" },
+							intent: "view",
+						},
+					],
+				},
+			]);
+			expect(result).toEqual({ valid: true, errors: [] });
+		});
+
 		it("stats", () => {
 			const result = validateBlocks([
 				{
@@ -255,6 +273,30 @@ describe("validateBlocks", () => {
 			]);
 			expect(result).toEqual({ valid: true, errors: [] });
 		});
+	});
+
+	it("rejects an unbounded or unsafe private PDF target", () => {
+		const result = validateBlocks([
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "private_pdf",
+						label: "Download",
+						route: "https://evil.example/pdf",
+						object: { documentId: "x".repeat(257) },
+						intent: "download",
+					},
+				],
+			},
+		]);
+		expect(result.valid).toBe(false);
+		expect(result.errors.map((error) => error.path)).toEqual(
+			expect.arrayContaining([
+				"blocks[0].elements[0].route",
+				"blocks[0].elements[0].object.documentId",
+			]),
+		);
 	});
 
 	// ── Invalid blocks ───────────────────────────────────────────────────────

@@ -661,6 +661,9 @@ export function createViteConfig(
 						"emdash > lowlight",
 						"emdash > highlight.js",
 						"emdash > highlight.js/lib/core",
+						// Private PDF views load PDF.js lazily; warm it before the first click.
+						"emdash > @emdash-cms/admin > pdfjs-dist",
+						"emdash > @emdash-cms/admin > pdfjs-dist/build/pdf.worker.mjs",
 						// The HTML block's code editor loads these lazily. Discovering
 						// them on first use would re-optimize and reload the admin.
 						"emdash > @emdash-cms/admin > @codemirror/autocomplete",

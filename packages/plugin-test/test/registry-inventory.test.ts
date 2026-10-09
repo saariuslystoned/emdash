@@ -169,6 +169,7 @@ const ELEMENT_DECISIONS = {
 	radio: "components",
 	date_input: "components",
 	combobox: "components",
+	private_pdf: "components",
 	repeater: "authoring-only",
 	media_picker: "field-widget",
 } as const satisfies Record<
@@ -250,10 +251,22 @@ describe("registry fixture capability inventory", () => {
 				Object.entries(ELEMENT_DECISIONS)
 					.filter(
 						([type, decision]) =>
-							decision === "components" && !["button", "link", "menu"].includes(type),
+							decision === "components" &&
+							!["button", "link", "menu", "private_pdf"].includes(type),
 					)
 					.map(([type]) => type),
 			),
+		);
+		const pdfElements = response.blocks.flatMap((block) =>
+			block.type === "actions"
+				? block.elements.filter((element) => element.type === "private_pdf")
+				: [],
+		);
+		expect(pdfElements).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "private_pdf", intent: "view" }),
+				expect.objectContaining({ type: "private_pdf", intent: "download" }),
+			]),
 		);
 		const table = response.blocks.find((block) => block.type === "table");
 		if (!table || table.type !== "table") throw new Error("Component table was not rendered");
