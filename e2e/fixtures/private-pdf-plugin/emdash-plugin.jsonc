@@ -1,0 +1,26 @@
+{
+	"slug": "gallery",
+	"version": "1.2.3",
+	"publisher": "did:plc:delegated00000000000000",
+	"repo": "https://github.com/emdash-cms/emdash",
+	"license": "MIT",
+	"author": {
+		"name": "EmDash test fixture",
+	},
+	"security": {
+		"url": "https://github.com/emdash-cms/emdash/security",
+	},
+	"description": "Private PDF Registry conformance fixture.",
+	"capabilities": ["content:read"],
+	"allowedHosts": [],
+	"storage": {},
+	"admin": {
+		"pages": [
+			{
+				"path": "/overview",
+				"label": "Overview",
+				"icon": "image",
+			},
+		],
+	},
+}

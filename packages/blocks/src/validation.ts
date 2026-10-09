@@ -38,6 +38,7 @@ const ELEMENT_TYPES = new Set([
 	"repeater",
 	"media_picker",
 	"menu",
+	"private_pdf",
 ]);
 
 const REPEATER_SUB_FIELD_TYPES = new Set(["text_input", "number_input", "select", "toggle"]);
@@ -54,8 +55,38 @@ const TREND_VALUES = new Set(["up", "down", "neutral"]);
 const BANNER_VARIANTS = new Set(["default", "alert", "error"]);
 const TRAILING_DOT_PATTERN = /\.$/;
 const PLUGIN_PAGE_PATH_PATTERN = /^\/[a-z0-9][a-z0-9/_-]*$/i;
+const PRIVATE_PDF_ROUTE_PATTERN = /^\/[a-z0-9](?:[a-z0-9/_-]*[a-z0-9_-])?$/i;
+const PRIVATE_PDF_KEY_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/i;
+const PRIVATE_PDF_UNSAFE_FILENAME_CHARACTERS = new Set([
+	'"',
+	"\\",
+	"/",
+	":",
+	"*",
+	"?",
+	"<",
+	">",
+	"|",
+]);
 const EDITOR_DRAFT_FIELD_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 const TEXT_ENCODER = new TextEncoder();
+
+function hasUnsafePrivatePdfText(value: string, includePercent = true): boolean {
+	for (const character of value) {
+		const code = character.charCodeAt(0);
+		if (
+			code <= 0x1f ||
+			code === 0x7f ||
+			(code >= 0x202a && code <= 0x202e) ||
+			(code >= 0x2066 && code <= 0x2069) ||
+			(includePercent && character === "%") ||
+			character === "\\"
+		) {
+			return true;
+		}
+	}
+	return false;
+}
 
 export const BLOCK_RESPONSE_LIMITS = {
 	maxBytes: 256 * 1024,
@@ -522,7 +553,7 @@ function validateElement(
 		return;
 	}
 
-	if (type !== "link" && typeof value.action_id !== "string") {
+	if (type !== "link" && type !== "private_pdf" && typeof value.action_id !== "string") {
 		errors.push({
 			path: `${path}.action_id`,
 			message: "Required field 'action_id' must be a string",
@@ -593,6 +624,70 @@ function validateElement(
 				});
 			}
 			validateLinkTarget(value.target, `${path}.target`, errors, policy);
+			break;
+		}
+		case "private_pdf": {
+			const privateRoute =
+				typeof value.route === "string" ? normalizePluginPagePath(value.route) : "";
+			if (
+				typeof value.route !== "string" ||
+				value.route !== privateRoute ||
+				value.route.length > 128 ||
+				!PRIVATE_PDF_ROUTE_PATTERN.test(privateRoute) ||
+				privateRoute.includes("//") ||
+				privateRoute.split("/").some((segment) => segment === "." || segment === "..")
+			) {
+				errors.push({
+					path: `${path}.route`,
+					message: "Private PDF route must be a safe relative path",
+				});
+			}
+			if (value.intent !== "view" && value.intent !== "download") {
+				errors.push({
+					path: `${path}.intent`,
+					message: "Private PDF intent must be view or download",
+				});
+			}
+			if (
+				!isRecord(value.object) ||
+				Object.keys(value.object).length === 0 ||
+				Object.keys(value.object).length > 16
+			) {
+				errors.push({
+					path: `${path}.object`,
+					message: "Private PDF object identity must be non-empty",
+				});
+			} else {
+				for (const [key, item] of Object.entries(value.object)) {
+					if (
+						!PRIVATE_PDF_KEY_PATTERN.test(key) ||
+						typeof item !== "string" ||
+						item.length === 0 ||
+						item.length > 256 ||
+						hasUnsafePrivatePdfText(item)
+					) {
+						errors.push({
+							path: `${path}.object.${key}`,
+							message: "Private PDF object identity must use bounded string values",
+						});
+					}
+				}
+			}
+			if (
+				value.filename !== undefined &&
+				(typeof value.filename !== "string" ||
+					value.filename.length === 0 ||
+					value.filename.length > 160 ||
+					hasUnsafePrivatePdfText(value.filename, false) ||
+					value.filename
+						.split("")
+						.some((character) => PRIVATE_PDF_UNSAFE_FILENAME_CHARACTERS.has(character)))
+			) {
+				errors.push({
+					path: `${path}.filename`,
+					message: "Private PDF filename must be a bounded safe string",
+				});
+			}
 			break;
 		}
 		case "text_input": {

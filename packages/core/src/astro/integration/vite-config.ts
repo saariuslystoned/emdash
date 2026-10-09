@@ -371,6 +371,7 @@ export function createVirtualModulesPlugin(
 // Matches the admin stylesheet import with or without a trailing query (e.g.
 // `?url`), so both forms resolve to dist rather than the source alias.
 const ADMIN_STYLES_ALIAS = /^@emdash-cms\/admin\/styles\.css/;
+const ADMIN_PDF_WORKER_ALIAS = /^@emdash-cms\/admin\/pdf-worker(?=\?|$)/;
 
 const NODE_NATIVE_EXTERNALS = ["@libsql/kysely-libsql", "pg"];
 
@@ -461,6 +462,7 @@ export function createViteConfig(
 			// boundary, so `styles.css?url` would slip through to the source alias.
 			alias: [
 				{ find: ADMIN_STYLES_ALIAS, replacement: resolve(adminDistPath, "styles.css") },
+				{ find: ADMIN_PDF_WORKER_ALIAS, replacement: resolve(adminDistPath, "pdf-worker.mjs") },
 				{ find: "@emdash-cms/admin", replacement: useSource ? adminSourcePath : adminDistPath },
 				// `use-sync-external-store/shim` is a React <18 polyfill that ships
 				// only as CJS. It's pulled in transitively by `@tiptap/react`. With
@@ -661,6 +663,9 @@ export function createViteConfig(
 						"emdash > lowlight",
 						"emdash > highlight.js",
 						"emdash > highlight.js/lib/core",
+						// Private PDF views load PDF.js lazily; warm it before the first click.
+						"emdash > @emdash-cms/admin > pdfjs-dist",
+						"emdash > @emdash-cms/admin > pdfjs-dist/build/pdf.worker.mjs",
 						// The HTML block's code editor loads these lazily. Discovering
 						// them on first use would re-optimize and reload the admin.
 						"emdash > @emdash-cms/admin > @codemirror/autocomplete",
@@ -682,7 +687,12 @@ export function createViteConfig(
 						"emdash > highlight.js",
 						"emdash > highlight.js/lib/core",
 					],
-			exclude: cloudflare ? ["virtual:emdash"] : [...NODE_NATIVE_EXTERNALS, "virtual:emdash"],
+			// Vite must transform this asset query after dependency optimization.
+			exclude: [
+				"@emdash-cms/admin/pdf-worker?url",
+				"virtual:emdash",
+				...(cloudflare ? [] : NODE_NATIVE_EXTERNALS),
+			],
 		},
 	};
 }

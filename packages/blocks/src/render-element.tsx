@@ -1,3 +1,5 @@
+import * as React from "react";
+
 import { ButtonElementComponent } from "./elements/button.js";
 import { CheckboxElementComponent } from "./elements/checkbox.js";
 import { ComboboxElementComponent } from "./elements/combobox.js";
@@ -10,7 +12,16 @@ import { SecretInputElementComponent } from "./elements/secret-input.js";
 import { SelectElementComponent } from "./elements/select.js";
 import { TextInputElementComponent } from "./elements/text-input.js";
 import { ToggleElementComponent } from "./elements/toggle.js";
-import type { ActionElement, BlockInteraction, LinkTargetResolver } from "./types.js";
+import type {
+	ActionElement,
+	BlockInteraction,
+	LinkTargetResolver,
+	PrivatePdfRenderer,
+} from "./types.js";
+
+export const PrivatePdfRendererContext = React.createContext<PrivatePdfRenderer | undefined>(
+	undefined,
+);
 
 export function renderElement(
 	element: ActionElement,
@@ -23,6 +34,8 @@ export function renderElement(
 			return <ButtonElementComponent element={element} onAction={onAction} />;
 		case "link":
 			return <LinkElementComponent element={element} resolveTarget={resolveLinkTarget} />;
+		case "private_pdf":
+			return <PrivatePdfElementComponent element={element} />;
 		case "menu":
 			return <MenuElementComponent element={element} onAction={onAction} />;
 		case "text_input":
@@ -68,4 +81,13 @@ export function renderElement(
 			return null;
 		}
 	}
+}
+
+function PrivatePdfElementComponent({
+	element,
+}: {
+	element: Extract<ActionElement, { type: "private_pdf" }>;
+}) {
+	const renderPrivatePdf = React.useContext(PrivatePdfRendererContext);
+	return renderPrivatePdf?.(element) ?? null;
 }

@@ -41,7 +41,8 @@
     "./html-block": {
       "types": "./dist/html-block.d.ts",
       "default": "./dist/html-block.js"
-    }
+    },
+    "./pdf-worker": "./dist/pdf-worker.mjs"
   },
   "scripts": {
     "build": "node --run locale:compile && tsdown && node --run locale:copy && npx @tailwindcss/cli -i src/styles.css -o dist/styles.css --minify",
@@ -73,7 +74,6 @@
     "@emdash-cms/registry-client": "workspace:*",
     "@emdash-cms/registry-lexicons": "workspace:*",
     "@floating-ui/react": "^0.27.16",
-    "date-fns": "^4.1.0",
     "@lezer/highlight": "catalog:",
     "@lingui/core": "catalog:",
     "@lingui/react": "catalog:",
@@ -109,11 +109,13 @@
     "@tiptap/y-tiptap": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "dompurify": "^3.3.2",
     "highlight.js": "catalog:",
     "lowlight": "catalog:",
     "marked": "^17.0.3",
     "modern-tar": "^0.7.5",
+    "pdfjs-dist": "6.4.299",
     "react-day-picker": "catalog:",
     "react-hotkeys-hook": "^5.2.4",
     "react-image-crop": "^11.1.2",

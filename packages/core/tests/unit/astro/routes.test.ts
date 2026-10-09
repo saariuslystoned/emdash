@@ -114,6 +114,19 @@ describe("core media route injection", () => {
 		expect(asset).toBeLessThan(mediaItem);
 	});
 
+	it("registers the private PDF mediator in the host-owned asset namespace", () => {
+		const routes = collectRoutePatternsWithEntrypoints();
+		expect(routes).toContainEqual(
+			expect.objectContaining({
+				pattern: "/_emdash/api/plugin-assets/[pluginId]/pdf",
+				entrypoint: expect.stringContaining("api/plugin-assets/"),
+			}),
+		);
+		expect(routes.map((route) => route.pattern)).not.toContain(
+			"/_emdash/api/plugins/[pluginId]/private-pdf",
+		);
+	});
+
 	it("registers the pending-media upload route with PUT only", () => {
 		const routes: Array<{ pattern: string; entrypoint: string }> = [];
 		injectCoreRoutes((route) => routes.push(route));

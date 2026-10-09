@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { expect, test } from "../fixtures";
 
 test.describe("Registry fixture Block Kit", () => {
@@ -80,6 +82,52 @@ test.describe("Registry fixture Block Kit", () => {
 		await admin.waitForLoading();
 		await page.getByRole("button", { name: "Return oversized response" }).click();
 		await expect(page.getByText(/INVALID_BLOCK_RESPONSE|PLUGIN_RESPONSE_TOO_LARGE/)).toBeVisible();
+	});
+
+	test("mediates a private PDF view through the declared plugin route", async ({ admin, page }) => {
+		await admin.goto("/plugins/marketplace-test/components");
+		await admin.waitForLoading();
+		const mediatorResponse = page.waitForResponse(
+			(response) =>
+				response.url().endsWith("/_emdash/api/plugin-assets/marketplace-test/pdf") &&
+				response.request().method() === "POST",
+		);
+		await page.getByRole("button", { name: "View private PDF" }).click();
+		const response = await mediatorResponse;
+		expect(response.status(), await response.text()).toBe(200);
+		const canvas = page.locator('canvas[data-pdf-rendered="true"]');
+		await expect(canvas).toBeVisible();
+		await expect(page.getByText("PRIVATE PDF FIXTURE", { exact: true })).toHaveCount(1);
+		expect(await canvas.evaluate((element) => element.width > 0 && element.height > 0)).toBe(true);
+		await expect(page.getByRole("button", { name: "Close viewer" })).toBeVisible();
+		await page.getByRole("button", { name: "Close viewer" }).click();
+		await expect(canvas).toHaveCount(0);
+	});
+
+	test("downloads the same deterministic private PDF bytes", async ({ admin, page }) => {
+		await admin.goto("/plugins/marketplace-test/components");
+		await admin.waitForLoading();
+		const responsePromise = page.waitForResponse(
+			(response) =>
+				response.url().endsWith("/_emdash/api/plugin-assets/marketplace-test/pdf") &&
+				response.request().method() === "POST",
+		);
+		const downloadPromise = page.waitForEvent("download");
+		await page.getByRole("button", { name: "Download private PDF" }).click();
+		const response = await responsePromise;
+		expect(response.status(), await response.text()).toBe(200);
+		const download = await downloadPromise;
+		const bytes = await download.createReadStream();
+		expect(bytes).not.toBeNull();
+		const chunks: Buffer[] = [];
+		for await (const chunk of bytes!) chunks.push(Buffer.from(chunk));
+		const content = Buffer.concat(chunks);
+		expect(content.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+		expect(content.toString("ascii")).toContain("PRIVATE PDF FIXTURE");
+		expect(createHash("sha256").update(content).digest("hex")).toBe(
+			"503dd5581e69b778088f5dae273d23315f5e50d371def81a1d23c0730137f8bb",
+		);
+		expect(download.suggestedFilename()).toBe("fixture-download.pdf");
 	});
 
 	test("loads the saved-entry panel lazily and runs the confirmed overflow action", async ({

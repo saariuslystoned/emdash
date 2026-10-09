@@ -1,0 +1,46 @@
+---
+title: Experimental private PDF handoff
+description: A bounded, provisional Block Kit handoff for private PDF bytes.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<Aside type="caution">
+`private_pdf` is experimental. Its wire format and rendering behavior can change
+without notice.
+</Aside>
+
+Use `private_pdf` when a sandboxed plugin needs to offer an authenticated,
+plugin-owned PDF as a view or download action. The element names a route declared
+by the same installed plugin, a bounded object identity, and an intent:
+
+```ts title="src/plugin.ts"
+{
+	type: "private_pdf",
+	label: "View invoice",
+	route: "/documents/pdf",
+	object: { documentId: "01J..." },
+	intent: "view",
+	filename: "invoice.pdf",
+}
+```
+
+The named route must remain private, explicitly allow `GET`, and declare
+`response: "raw"`. EmDash reauthorizes the session, role permission, token scope,
+CSRF request, plugin enablement, and route declaration for every handoff. The
+object identity is sent as query data only to that route; the host does not
+accept a plugin ID from the element.
+
+Only non-empty `application/pdf` responses up to 8 MiB are accepted. Redirects,
+non-200 responses, other MIME types, invalid PDF signatures, and malformed
+targets are denied. Viewing parses the bytes with the pinned PDF.js display
+layer, renders each selected page to a canvas, allows at most eight pages and four
+million canvas pixels, and does not run PDF scripts, XFA, annotations, remote font fetching,
+and automatic resource fetching. The viewer cancels parsing and rendering when
+closed, replaced, or unmounted. Views expire after two minutes; reopen to reauthorize.
+
+Downloads perform a new mediator request and create a one-shot browser download
+URL. Filenames are host-sanitized and forced to use the `.pdf` suffix. The
+mediator and successful PDF response use `private, no-store` and `nosniff`.
+This feature does not create a public asset URL, run plugin JavaScript, mutate
+content, or provide a print action.

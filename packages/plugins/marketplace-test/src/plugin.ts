@@ -28,6 +28,34 @@ const fixturePng = new Uint8Array([
 	0, 181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 252, 255, 31, 0, 3, 3, 2, 0, 239,
 	162, 167, 91, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
 ]);
+function createFixturePdf(): Uint8Array {
+	const content = "BT\n/F1 24 Tf\n72 700 Td\n(PRIVATE PDF FIXTURE) Tj\nET\n";
+	const objects = [
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+		`<< /Length ${new TextEncoder().encode(content).byteLength} >>\nstream\n${content}endstream`,
+	];
+	const header = "%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n";
+	const body = objects.map((object, index) => `${index + 1} 0 obj\n${object}\nendobj\n`);
+	const offsets: number[] = [0];
+	let position = new TextEncoder().encode(header).byteLength;
+	for (const object of body) {
+		offsets.push(position);
+		position += new TextEncoder().encode(object).byteLength;
+	}
+	const xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets
+		.slice(1)
+		.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+		.join("")}`;
+	const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${
+		position
+	}\n%%EOF\n`;
+	return new Uint8Array(new TextEncoder().encode(header + body.join("") + xref + trailer));
+}
+
+const fixturePdf = createFixturePdf();
 
 type RedirectCreateProbeInput = RedirectCreateInput & { auto?: unknown };
 type RedirectUpdateProbeInput = RedirectUpdateInput & { _rev: string; auto?: unknown };
@@ -427,6 +455,22 @@ const plugin: SandboxedPlugin = {
 								type: "actions",
 								elements: [
 									{ type: "button", label: "Run", action_id: "run", style: "primary" },
+									{
+										type: "private_pdf",
+										label: "View private PDF",
+										route: "/fixture-pdf",
+										object: { documentId: "fixture-document" },
+										intent: "view",
+										filename: "fixture.pdf",
+									},
+									{
+										type: "private_pdf",
+										label: "Download private PDF",
+										route: "/fixture-pdf",
+										object: { documentId: "fixture-document" },
+										intent: "download",
+										filename: "fixture-download.pdf",
+									},
 									{
 										type: "button",
 										label: "Return unsafe image",
@@ -1541,6 +1585,27 @@ const plugin: SandboxedPlugin = {
 					headers: { "content-type": "image/png" },
 					body: { kind: "bytes", value: fixturePng },
 				}),
+		}),
+		"fixture-pdf": pluginRoute({
+			methods: ["GET"],
+			request: { body: "none" },
+			response: "raw",
+			handler: async (route) => {
+				const documentId = route.input.documentId;
+				if (
+					documentId !== "fixture-document" ||
+					Array.isArray(documentId) ||
+					typeof route.user?.id !== "string" ||
+					route.user.id.length === 0
+				) {
+					return pluginResponse({ status: 404, body: { kind: "text", value: "Not found" } });
+				}
+				return pluginResponse({
+					status: 200,
+					headers: { "content-type": "application/pdf" },
+					body: { kind: "bytes", value: fixturePdf },
+				});
+			},
 		}),
 		"http-roundtrip": {
 			handler: async (route, ctx) => {

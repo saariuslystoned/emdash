@@ -335,7 +335,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	const response = await handleEmDashAuth(context, next);
 
 	// Set strict CSP on all /_emdash responses (prod only)
-	if (!import.meta.env.DEV) {
+	const passivePdf =
+		context.url.pathname.startsWith("/_emdash/api/plugin-assets/") &&
+		context.url.pathname.endsWith("/pdf") &&
+		response.headers.get("Content-Security-Policy") ===
+			"sandbox; default-src 'none'; frame-ancestors 'none'";
+	if (!import.meta.env.DEV && !passivePdf) {
 		response.headers.set(
 			"Content-Security-Policy",
 			buildEmDashCsp(

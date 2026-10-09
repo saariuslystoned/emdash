@@ -51,34 +51,49 @@ function localeManifestPlugin(): Plugin {
 	};
 }
 
-export default defineConfig({
-	// locales/config and locales/emails are separate server-safe entries:
-	// EmDash core imports them from API routes, where the locales barrel's
-	// React/Kumo graph must not be pulled into the server bundle.
-	entry: [
-		"src/index.ts",
-		"src/locales/index.ts",
-		"src/locales/server.ts",
-		"src/locales/config.ts",
-		"src/locales/emails.ts",
-		"src/portable-text-table.ts",
-		"src/html-block.ts",
-		"src/slugify.ts",
-	],
-	format: ["esm"],
-	dts: true,
-	clean: true,
-	platform: "browser",
-	plugins: [linguiMacroPlugin(), localeManifestPlugin()],
-	// @tiptap/suggestion is intentionally bundled (devDependency)
-	inlineOnly: false,
-	external: [
-		"react",
-		"react-dom",
-		"react/jsx-runtime",
-		"react/jsx-dev-runtime",
-		// Keep TanStack external - Vite in consumer project will need to resolve these
-		"@tanstack/react-router",
-		"@tanstack/react-query",
-	],
-});
+export default defineConfig([
+	{
+		// locales/config and locales/emails are separate server-safe entries:
+		// EmDash core imports them from API routes, where the locales barrel's
+		// React/Kumo graph must not be pulled into the server bundle.
+		entry: [
+			"src/index.ts",
+			"src/locales/index.ts",
+			"src/locales/server.ts",
+			"src/locales/config.ts",
+			"src/locales/emails.ts",
+			"src/portable-text-table.ts",
+			"src/html-block.ts",
+			"src/slugify.ts",
+		],
+		format: ["esm"],
+		dts: true,
+		clean: true,
+		platform: "browser",
+		plugins: [linguiMacroPlugin(), localeManifestPlugin()],
+		// @tiptap/suggestion is intentionally bundled (devDependency)
+		inlineOnly: false,
+		noExternal: [/^pdfjs-dist(?:\/|$)/],
+		external: [
+			"@emdash-cms/admin/pdf-worker?url",
+			"react",
+			"react-dom",
+			"react/jsx-runtime",
+			"react/jsx-dev-runtime",
+			// Keep TanStack external - Vite in consumer project will need to resolve these
+			"@tanstack/react-router",
+			"@tanstack/react-query",
+		],
+	},
+	{
+		entry: ["src/pdf-worker.mjs"],
+		// This dedicated asset intentionally bundles PDF.js into the host worker.
+		inlineOnly: false,
+		format: ["esm"],
+		outExtensions: () => ({ js: ".mjs" }),
+		dts: false,
+		clean: false,
+		platform: "browser",
+		noExternal: [/^pdfjs-dist(?:\/|$)/],
+	},
+]);
